@@ -1,10 +1,16 @@
 #-*- coding: utf-8 -*-
+import os
+import csv
+import glob
+import MySQLdb
 import scrapy
 from selenium import webdriver
 from scrapy.selector import Selector
 from scrapy.http import Request
 from time import sleep
 from selenium.common.exceptions import NoSuchElementException
+import pandas as pd
+from sqlalchemy import *
 
 class ResultsSpider(scrapy.Spider):
     name = 'results'
@@ -30,17 +36,34 @@ class ResultsSpider(scrapy.Spider):
                 sel = Selector(text=self.driver.page_source)
                 listings = sel.xpath('//h3/a[@target="_blank"]/@href').extract()
                 for listing in listings:
-                	yield Request(listing, callback=self.parse_listing)
+                    yield Request(listing, callback=self.parse_listing)
             except NoSuchElementException:
-                self.logger.info('No more pages to load.')
-                self.driver.quit()
-                break
+                self.logger.info('No more pages to load?')
+                manual=input(print('right?'))
+                if manual=='yes':
+                    self.driver.quit()
+                    break
+                else:
+                    sel = Selector(text=self.driver.page_source)
+                    listings = sel.xpath('//h3/a[@target="_blank"]/@href').extract()
+                    for listing in listings:
+                        yield Request(listing, callback=self.parse_listing)
     def parse_listing(self, response):
-    	title = response.xpath('//h2[@class="rich_media_title"]/text()').extract_first()
-    	date=response.xpath('//em[@id="post-date"]/text()').extract_first()
-    	author=response.xpath('//a[@id="post-user"]/text()').extract_first()
-    	content=''.join(response.xpath('//div[@class="rich_media_content "]//text()').extract()).strip()
-    	yield {'title':title,
-    			'date':date,
-    			'author':author,
-    			'content':content}
+        title = response.xpath('//h2[@class="rich_media_title"]/text()').extract_first().encode('utf-8')
+        pubdate=response.xpath('//em[@id="post-date"]/text()').extract_first().encode('utf-8')
+        author=response.xpath('//a[@id="post-user"]/text()').extract_first().encode('utf-8')
+        content=''.join(response.xpath('//div[@class="rich_media_content "]//text()').extract()).strip().encode('utf-8')
+        if title==None:
+            print("WARNING:It's not a typical link, try redirect.")
+            sharelink=response.xpath('//a[@id="js_share_source"]/@href').extract_first()
+            yield Request(sharelink, callback=self)
+        else:
+            yield {'title':title,'pubdate':pubdate,'author':author,'content':content}
+    def close(self, reason):
+        data=pd.read_csv('C://Users/USER/Desktop/sougou/items.csv')
+        engine = create_engine("mysql+mysqldb://root:psswd@localhost:3306/sougou_db?charset=utf8&use_unicode=1",encoding='utf-8')
+        meta = MetaData(bind=engine)
+        table_actors = Table('sougou_table', meta,Column('title', VARCHAR),Column('date', VARCHAR),Column('author', VARCHAR),Column('content', VARCHAR),mysql_charset='utf-8')
+        meta.create_all(engine)
+        meta.create_all(engine)
+        data.to_sql('sougou_table',con=engine, if_exists='replace',index=False)
