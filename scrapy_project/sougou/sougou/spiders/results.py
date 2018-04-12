@@ -21,14 +21,18 @@ class ResultsSpider(scrapy.Spider):
         self.driver = webdriver.Chrome('C://Users/USER/Desktop/sougou/chromedriver')
         self.driver.get('http://weixin.sogou.com')
         
-        pauser=input(print('ready?'))
-
+        pauser=input(print('QR code login ready?'))
+        query=input(print('Search query?'))
+        page=input(print('Start from page:'))
+        length=int(input(print('How many pages?(max100)')))
+        prob='http://weixin.sogou.com/weixin?query='+query+'&_sug_type_=&s_from=input&_sug_=n&type=2&page='+page+'&ie=utf8'
+        self.driver.get(prob)
         sel = Selector(text=self.driver.page_source)
         listings = sel.xpath('//h3/a[@target="_blank"]/@href').extract()
         for listing in listings:
             yield Request(listing, callback=self.parse_listing)
-    
-        while True:
+        pagecounter=1
+        while pagecounter<length:
             try:
                 next_page = self.driver.find_element_by_xpath('//a[@id="sogou_next"]')
                 sleep(2)
@@ -39,6 +43,7 @@ class ResultsSpider(scrapy.Spider):
                 listings = sel.xpath('//h3/a[@target="_blank"]/@href').extract()
                 for listing in listings:
                     yield Request(listing, callback=self.parse_listing)
+                pagecounter=pagecounter+1
             except NoSuchElementException:
                 self.logger.info('No more pages to load?')
                 manual=input(print('right?'))
@@ -50,6 +55,7 @@ class ResultsSpider(scrapy.Spider):
                     listings = sel.xpath('//h3/a[@target="_blank"]/@href').extract()
                     for listing in listings:
                         yield Request(listing, callback=self.parse_listing)
+                    pagecounter=pagecounter+1
     def parse_listing(self, response):
         title = response.xpath('//h2[@class="rich_media_title"]/text()').extract_first()
         pubdate=response.xpath('//em[@id="post-date"]/text()').extract_first()
