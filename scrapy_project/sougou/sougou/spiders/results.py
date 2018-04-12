@@ -11,6 +11,8 @@ from time import sleep
 from selenium.common.exceptions import NoSuchElementException
 import pandas as pd
 from sqlalchemy import *
+import numpy as np
+import mysql.connector
 
 class ResultsSpider(scrapy.Spider):
     name = 'results'
@@ -49,21 +51,50 @@ class ResultsSpider(scrapy.Spider):
                     for listing in listings:
                         yield Request(listing, callback=self.parse_listing)
     def parse_listing(self, response):
-        title = response.xpath('//h2[@class="rich_media_title"]/text()').extract_first().encode('utf-8')
-        pubdate=response.xpath('//em[@id="post-date"]/text()').extract_first().encode('utf-8')
-        author=response.xpath('//a[@id="post-user"]/text()').extract_first().encode('utf-8')
-        content=''.join(response.xpath('//div[@class="rich_media_content "]//text()').extract()).strip().encode('utf-8')
+        title = response.xpath('//h2[@class="rich_media_title"]/text()').extract_first()
+        pubdate=response.xpath('//em[@id="post-date"]/text()').extract_first()
+        author=response.xpath('//a[@id="post-user"]/text()').extract_first()
+        content=''.join(response.xpath('//div[@class="rich_media_content "]//text()').extract()).strip()
         if title==None:
             print("WARNING:It's not a typical link, try redirect.")
             sharelink=response.xpath('//a[@id="js_share_source"]/@href').extract_first()
-            yield Request(sharelink, callback=self)
+            yield Request(sharelink, callback=self.parse_listing)
         else:
             yield {'title':title,'pubdate':pubdate,'author':author,'content':content}
     def close(self, reason):
         data=pd.read_csv('C://Users/USER/Desktop/sougou/items.csv')
-        engine = create_engine("mysql+mysqldb://root:psswd@localhost:3306/sougou_db?charset=utf8&use_unicode=1",encoding='utf-8')
-        meta = MetaData(bind=engine)
-        table_actors = Table('sougou_table', meta,Column('title', VARCHAR),Column('date', VARCHAR),Column('author', VARCHAR),Column('content', VARCHAR),mysql_charset='utf-8')
-        meta.create_all(engine)
-        meta.create_all(engine)
-        data.to_sql('sougou_table',con=engine, if_exists='replace',index=False)
+        a=0
+        data = data.replace(np.nan, '', regex=True)
+        for i in range(len(data)):
+            data['content'][i]=data['content'][i].replace("'",'')
+            data['content'][i]=data['content'][i].replace('"','')
+            data['content'][i]=data['content'][i].replace("”",'')
+            data['content'][i]=data['content'][i].replace('“','')
+            data['content'][i]=data['content'][i].replace("’",'')
+            data['content'][i]=data['content'][i].replace('‘','')
+            data['content'][i]=data['content'][i].replace("\\",'')
+            data['content'][i]=data['content'][i].replace('\\','')
+            data['title'][i]=data['title'][i].replace("'",'')
+            data['title'][i]=data['title'][i].replace('"','')
+            data['title'][i]=data['title'][i].replace("“",'')
+            data['title'][i]=data['title'][i].replace('”','')
+            data['title'][i]=data['title'][i].replace("’",'')
+            data['title'][i]=data['title'][i].replace('‘','')
+            data['title'][i]=data['title'][i].replace('\\','')
+            data['title'][i]=data['title'][i].replace('\\','')
+            for j in range(len(data['content'][i])):
+                b=len(data['content'][i])
+                d=j-a
+                if len(data['content'][i][d].encode('utf-8'))>3:
+                    data['content'][i]=data['content'][i].replace(data['content'][i][d],'')
+                c=len(data['content'][i])
+                a=a+b-c
+        cnx=mysql.connector.connect(user='root',password='password',database='sougou')
+        cursor=cnx.cursor()
+        for k in range(len(data)):
+            add=("INSERT INTO sougoutable(title,pubdate,author,content)"\
+                 'VALUES("'+data['title'][k]+'","'+data['pubdate'][k]+'","'+data['author'][k]+'","'+data['content'][k]+'")')
+            cursor.execute(add)
+            cnx.commit()
+        cursor.close()
+        cnx.close()

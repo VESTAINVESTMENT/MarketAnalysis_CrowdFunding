@@ -2,7 +2,7 @@
 
 用法：
 *由于搜狗需要二维码登录，该爬虫会让用户手动进行登录。
-1.确保电脑安装了python， 并下载了 scrapy，MySQL-python(MySQLdb)以及selenium包。下载Chrome以及Chromedriver。准备好自己的手机。
+1.确保电脑安装了python， 并下载了 scrapy，MySQL-python(MySQLdb)以及selenium包。下载Chrome以及Chromedriver（目录下已提供）。准备好自己的手机。
 2.将sougou文件夹至于桌面（该说明以桌面为准，可以根据自己需要自行调整目录）。
 3.打开sougou/sougou/spider/results.py, 将第13行的地址改为自己的Chromedriver的地址
 4.从开始菜单打开cmd窗口
@@ -14,4 +14,10 @@
 10.当爬到第100页时请在程序界面输入yes,回车。
 
 **关于导入mysql：
-要设置code中connection url，并确认CSV路径正确
+要设置code中用户名，密码以及数据库名称，并确认CSV路径正确，在mysql端建立table时一定要注意data type，建议使用如下语句：
+CREATE TABLE `sougoutable` (
+  `title` varchar(100) DEFAULT NULL,
+  `pubdate` varchar(100) DEFAULT NULL,
+  `author` varchar(100) DEFAULT NULL,
+  `content` mediumtext
+)
