@@ -56,6 +56,7 @@ class ResultsSpider(scrapy.Spider):
                     for listing in listings:
                         yield Request(listing, callback=self.parse_listing)
                     pagecounter=pagecounter+1
+        self.driver.quit()
     def parse_listing(self, response):
         title = response.xpath('//h2[@class="rich_media_title"]/text()').extract_first()
         pubdate=response.xpath('//em[@id="post-date"]/text()').extract_first()
@@ -68,7 +69,7 @@ class ResultsSpider(scrapy.Spider):
         else:
             yield {'title':title,'pubdate':pubdate,'author':author,'content':content}
     def close(self, reason):
-        data=pd.read_csv('C://Users/USER/Desktop/sougou/items.csv')
+        data=pd.read_csv(max(glob.iglob('*.csv'), key=os.path.getctime))
         a=0
         data = data.replace(np.nan, '', regex=True)
         for i in range(len(data)):
@@ -97,10 +98,21 @@ class ResultsSpider(scrapy.Spider):
                 a=a+b-c
         cnx=mysql.connector.connect(user='root',password='password',database='sougou')
         cursor=cnx.cursor()
+        rawtable=input(print('raw table name:'))
+        newtable=input(print('new table name:'))
+        addrawtable='CREATE TABLE '+rawtable+ '(title varchar(100),pubdate varchar(100),author varchar(100),content mediumtext)'
+        cursor.execute(addrawtable)
+        cnx.commit()
         for k in range(len(data)):
-            add=("INSERT INTO sougoutable(title,pubdate,author,content)"\
+            add=("INSERT INTO "+rawtable+"(title,pubdate,author,content)"\
                  'VALUES("'+data['title'][k]+'","'+data['pubdate'][k]+'","'+data['author'][k]+'","'+data['content'][k]+'")')
             cursor.execute(add)
             cnx.commit()
+        addnewtable='create table '+newtable+' like '+rawtable
+        cursor.execute(addnewtable)
+        cnx.commit()
+        insertnewtable='insert ' +newtable+ ' select * from ' +rawtable+ ' group by title'
+        cursor.execute(insertnewtable)
+        cnx.commit()
         cursor.close()
         cnx.close()

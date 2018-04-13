@@ -6,7 +6,7 @@
 2.将sougou文件夹至于桌面（该说明以桌面为准，可以根据自己需要自行调整目录）。
 3.打开sougou/sougou/spider/results.py, 将第13行的地址改为自己的Chromedriver的地址
 4.从开始菜单打开cmd窗口
-5.输入‘cd Desktop’,回车，再输入‘cd sougou’,回车，最后输入scrapy crawl results -o items.csv,回车。
+5.输入‘cd Desktop’,回车，再输入‘cd sougou’,回车，最后输入scrapy crawl results -o *.csv,回车。此处*为文件名，可以随意输入
 6.在弹出的Chrome浏览器中点击右上角的登录，用手机扫码登录
 7.在cmd菜单中‘ready？’条目下随意输入，再回车,输入搜索关键字，回车，输入起始页码，回车，输入想要爬的页数，回车，注意最多只能爬100页。
 8.等待爬虫自动运行，完成。
@@ -14,10 +14,4 @@
 10.当爬到第100页时请在程序界面输入yes,回车。
 
 **关于导入mysql：
-要设置code中用户名，密码以及数据库名称，并确认CSV路径正确，在mysql端建立table时一定要注意data type，建议使用如下语句：
-CREATE TABLE `sougoutable` (
-  `title` varchar(100) DEFAULT NULL,
-  `pubdate` varchar(100) DEFAULT NULL,
-  `author` varchar(100) DEFAULT NULL,
-  `content` mediumtext
-)
+要设置code中用户名，密码以及数据库名称，并确认CSV路径正确，在mysql端建立database名为sougou,输入源table名和新table名即可
