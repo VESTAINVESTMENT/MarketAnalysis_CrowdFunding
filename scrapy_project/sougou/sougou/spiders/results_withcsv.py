@@ -1,5 +1,4 @@
 #-*- coding: utf-8 -*-
-from folder import MySQL
 import os
 import csv
 import glob
@@ -18,10 +17,6 @@ import mysql.connector
 class ResultsSpider(scrapy.Spider):
     name = 'results'
     allowed_domains = ["weixin.sogou.com","mp.weixin.qq.com"]
-    rawtable=input(print('raw table name:'))
-    newtable=input(print('new table name:'))
-    sql=MySQL.MySQL('root','19940228083','sougou')
-    sql.create(rawtable,'(title varchar(100),pubdate varchar(100),author varchar(100),content mediumtext)')
     def start_requests(self):
         self.driver = webdriver.Chrome('C://Users/USER/Desktop/sougou/chromedriver')
         self.driver.get('http://weixin.sogou.com')
@@ -63,9 +58,6 @@ class ResultsSpider(scrapy.Spider):
                     pagecounter=pagecounter+1
         self.driver.quit()
     def parse_listing(self, response):
-        sql=MySQL.MySQL('root','19940228083','sougou')
-        rawtable=ResultsSpider.rawtable
-        newtable=ResultsSpider.newtable
         title = response.xpath('//h2[@class="rich_media_title"]/text()').extract_first()
         pubdate=response.xpath('//em[@id="post-date"]/text()').extract_first()
         author=response.xpath('//a[@id="post-user"]/text()').extract_first()
@@ -75,41 +67,52 @@ class ResultsSpider(scrapy.Spider):
             sharelink=response.xpath('//a[@id="js_share_source"]/@href').extract_first()
             yield Request(sharelink, callback=self.parse_listing)
         else:
-            if pubdate==None:
-                pubdate=''
-            if author==None:
-                author=''
-            if content==None:
-                content=''
-            content=content.replace("'",'')
-            content=content.replace('"','')
-            content=content.replace("”",'')
-            content=content.replace('“','')
-            content=content.replace("’",'')
-            content=content.replace('‘','')
-            content=content.replace("\\",'')
-            content=content.replace('\\','')
-            title=title.replace("'",'')
-            title=title.replace('"','')
-            title=title.replace("“",'')
-            title=title.replace('”','')
-            title=title.replace("’",'')
-            title=title.replace('‘','')
-            title=title.replace('\\','')
-            title=title.replace('\\','')
-            a=0
-            for j in range(len(content)):
-                b=len(content)
+            yield {'title':title,'pubdate':pubdate,'author':author,'content':content}
+    def close(self, reason):
+        data=pd.read_csv(max(glob.iglob('*.csv'), key=os.path.getctime))
+        a=0
+        data = data.replace(np.nan, '', regex=True)
+        for i in range(len(data)):
+            data['content'][i]=data['content'][i].replace("'",'')
+            data['content'][i]=data['content'][i].replace('"','')
+            data['content'][i]=data['content'][i].replace("”",'')
+            data['content'][i]=data['content'][i].replace('“','')
+            data['content'][i]=data['content'][i].replace("’",'')
+            data['content'][i]=data['content'][i].replace('‘','')
+            data['content'][i]=data['content'][i].replace("\\",'')
+            data['content'][i]=data['content'][i].replace('\\','')
+            data['title'][i]=data['title'][i].replace("'",'')
+            data['title'][i]=data['title'][i].replace('"','')
+            data['title'][i]=data['title'][i].replace("“",'')
+            data['title'][i]=data['title'][i].replace('”','')
+            data['title'][i]=data['title'][i].replace("’",'')
+            data['title'][i]=data['title'][i].replace('‘','')
+            data['title'][i]=data['title'][i].replace('\\','')
+            data['title'][i]=data['title'][i].replace('\\','')
+            for j in range(len(data['content'][i])):
+                b=len(data['content'][i])
                 d=j-a
-                if len(content[d].encode('utf-8'))>3:
-                    content=content.replace(content[d],'')
-                c=len(content)
+                if len(data['content'][i][d].encode('utf-8'))>3:
+                    data['content'][i]=data['content'][i].replace(data['content'][i][d],'')
+                c=len(data['content'][i])
                 a=a+b-c
-            sql.insert(rawtable,['title','pubdate','author','content'],[title,pubdate,author,content])
-    def close(self):
-        rawtable=ResultsSpider.rawtable
-        newtable=ResultsSpider.newtable
-        sql=MySQL.MySQL('root','19940228083','sougou')
-        sql.create(newtable,' like '+rawtable)
-        sql.groupby(rawtable,newtable,'title')
-            
+        cnx=mysql.connector.connect(user='root',password='password',database='sougou')
+        cursor=cnx.cursor()
+        rawtable=input(print('raw table name:'))
+        newtable=input(print('new table name:'))
+        addrawtable='CREATE TABLE '+rawtable+ '(title varchar(100),pubdate varchar(100),author varchar(100),content mediumtext)'
+        cursor.execute(addrawtable)
+        cnx.commit()
+        for k in range(len(data)):
+            add=("INSERT INTO "+rawtable+"(title,pubdate,author,content)"\
+                 'VALUES("'+data['title'][k]+'","'+data['pubdate'][k]+'","'+data['author'][k]+'","'+data['content'][k]+'")')
+            cursor.execute(add)
+            cnx.commit()
+        addnewtable='create table '+newtable+' like '+rawtable
+        cursor.execute(addnewtable)
+        cnx.commit()
+        insertnewtable='insert ' +newtable+ ' select * from ' +rawtable+ ' group by title'
+        cursor.execute(insertnewtable)
+        cnx.commit()
+        cursor.close()
+        cnx.close()
